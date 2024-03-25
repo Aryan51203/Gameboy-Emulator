@@ -771,7 +771,7 @@ impl CPU {
                     JumpType::Carry => self.registers.f.carry,
                     JumpType::Always => true,
                 };
-                self.call(jump_condition) // TODO: Implement call
+                self.call(jump_condition)
             }
 
             Instruction::RET(test) => {
@@ -782,7 +782,7 @@ impl CPU {
                     JumpType::Carry => self.registers.f.carry,
                     JumpType::Always => true,
                 };
-                self.ret(jump_condition) // TODO: Implement ret
+                self.ret(jump_condition)
             }
 
             Instruction::RETI => {
@@ -1525,6 +1525,26 @@ impl CPU {
             self.pc.wrapping_add(offset as u16)
         } else {
             self.pc.wrapping_add(2)
+        }
+    }
+
+    // Call and Return
+    fn call(&mut self, should_jump: bool) -> u16 {
+        if should_jump {
+            let least_significant_byte = self.bus.read_byte(self.pc + 1) as u16;
+            let most_significant_byte = self.bus.read_byte(self.pc + 2) as u16;
+            self.push(self.pc.wrapping_add(3));
+            (most_significant_byte << 8) | least_significant_byte
+        } else {
+            self.pc.wrapping_add(3)
+        }
+    }
+
+    fn ret(&mut self, should_jump: bool) -> u16 {
+        if should_jump {
+            self.pop()
+        } else {
+            self.pc.wrapping_add(1)
         }
     }
 
