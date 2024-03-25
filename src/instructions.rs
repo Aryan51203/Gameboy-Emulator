@@ -126,6 +126,7 @@ pub enum LoadType {
     ByteAddressFromA(ByteAddress),
     SPToAddress,
 }
+
 pub enum LoadByteTarget {
     B,
     C,

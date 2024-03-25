@@ -1,8 +1,6 @@
-use std::io::WriterPanicked;
-use std::ops::Add;
-
 use crate::instructions::{
-    ArithmeticTarget, ArithmeticTargetLong, IncDecTarget, Instruction, JumpType, LoadType,
+    ArithmeticTarget, ArithmeticTargetLong, ByteAddress, IncDecTarget, Indirect, Instruction,
+    JumpType, LoadByteSource, LoadByteTarget, LoadType, LoadWordSource, LoadWordTarget,
     RegisterTarget, StackRegisters,
 };
 use crate::memory::MemoryBus;
@@ -54,7 +52,7 @@ impl CPU {
 
             Instruction::JPL => self.registers.get_hl(),
 
-            Instructions::JR(test) => {
+            Instruction::JR(test) => {
                 let jump_condition = match test {
                     JumpType::NotZero => !self.registers.f.zero,
                     JumpType::Zero => self.registers.f.zero,
@@ -826,9 +824,142 @@ impl CPU {
                 //     LoadType::Byte(target, source) => {}
                 //     LoadType::Word(target, source) => {}
                 // }
+
+                match ld_type {
+                    LoadType::Byte(LoadByteTarget, LoadByteSource) => {
+                        let source_value: u8;
+
+                        match LoadByteSource {
+                            LoadByteSource::A => source_value = self.registers.a,
+                            LoadByteSource::B => source_value = self.registers.b,
+                            LoadByteSource::C => source_value = self.registers.c,
+                            LoadByteSource::D => source_value = self.registers.d,
+                            LoadByteSource::E => source_value = self.registers.e,
+                            LoadByteSource::H => source_value = self.registers.h,
+                            LoadByteSource::L => source_value = self.registers.l,
+                            LoadByteSource::HLI => {
+                                source_value = self.bus.read_byte(self.registers.get_hl())
+                            }
+                            LoadByteSource::D8 => source_value = self.bus.read_byte(self.pc + 1),
+                        }
+                        match LoadByteTarget {
+                            LoadByteTarget::A => self.registers.a = source_value,
+                            LoadByteTarget::B => self.registers.b = source_value,
+                            LoadByteTarget::C => self.registers.c = source_value,
+                            LoadByteTarget::D => self.registers.d = source_value,
+                            LoadByteTarget::E => self.registers.e = source_value,
+                            LoadByteTarget::H => self.registers.h = source_value,
+                            LoadByteTarget::L => self.registers.l = source_value,
+                            LoadByteTarget::HLI => {
+                                self.bus.set_byte(self.registers.get_hl(), source_value)
+                            }
+                        }
+                    }
+
+                    LoadType::Word(LoadWordTarget, LoadWordSource) => {
+                        let mut source_value: u16 = 0x0;
+
+                        match LoadWordSource {
+                            LoadWordSource::BC => source_value = self.registers.get_bc(),
+                            LoadWordSource::DE => source_value = self.registers.get_de(),
+                            LoadWordSource::HL => source_value = self.registers.get_hl(),
+                            LoadWordSource::SP => source_value = self.sp,
+                            LoadWordSource::D16 => {
+                                let lower_byte = self.bus.read_byte(self.pc + 1) as u16;
+                                let upper_byte = self.bus.read_byte(self.pc + 2) as u16;
+                                source_value = (upper_byte << 8) | lower_byte;
+                            }
+                        }
+
+                        match LoadWordTarget {
+                            LoadWordTarget::BC => self.registers.set_bc(source_value),
+                            LoadWordTarget::DE => self.registers.set_de(source_value),
+                            LoadWordTarget::HL => self.registers.set_hl(source_value),
+                            LoadWordTarget::SP => self.sp = source_value,
+                        }
+                    }
+
+                    LoadType::AFromIndirect(target) => match target {
+                        Indirect::BCI => {
+                            self.registers.a = self.bus.read_byte(self.registers.get_bc())
+                        }
+                        Indirect::DEI => {
+                            self.registers.a = self.bus.read_byte(self.registers.get_de())
+                        }
+                        Indirect::HLINC => {
+                            self.registers.a = self.bus.read_byte(self.registers.get_hl());
+                            self.registers
+                                .set_hl(self.registers.get_hl().wrapping_add(1));
+                        }
+                        Indirect::HLDEC => {
+                            self.registers.a = self.bus.read_byte(self.registers.get_hl());
+                            self.registers
+                                .set_hl(self.registers.get_hl().wrapping_sub(1));
+                        }
+                    },
+
+                    LoadType::IndirectFromA(target) => match target {
+                        Indirect::BCI => {
+                            self.bus.set_byte(self.registers.get_bc(), self.registers.a)
+                        }
+                        Indirect::DEI => {
+                            self.bus.set_byte(self.registers.get_de(), self.registers.a)
+                        }
+                        Indirect::HLINC => {
+                            self.bus.set_byte(self.registers.get_hl(), self.registers.a);
+                            self.registers
+                                .set_hl(self.registers.get_hl().wrapping_add(1));
+                        }
+                        Indirect::HLDEC => {
+                            self.bus.set_byte(self.registers.get_hl(), self.registers.a);
+                            self.registers
+                                .set_hl(self.registers.get_hl().wrapping_sub(1));
+                        }
+                    },
+                    LoadType::AFromByteAddress(target) => match target {
+                        ByteAddress::A8 => {
+                            let address = 0xFF00 | self.bus.read_byte(self.pc + 1) as u16;
+                            self.registers.a = self.bus.read_byte(address);
+                        }
+                        ByteAddress::C => {
+                            let address = 0xFF00 | self.registers.c as u16;
+                            self.registers.a = self.bus.read_byte(address);
+                        }
+                        ByteAddress::A16 => {
+                            let lower_byte = self.bus.read_byte(self.pc + 1) as u16;
+                            let upper_byte = self.bus.read_byte(self.pc + 2) as u16;
+                            let address = upper_byte << 8 | lower_byte;
+                            self.registers.a = self.bus.read_byte(address);
+                        }
+                    },
+
+                    LoadType::ByteAddressFromA(target) => match target {
+                        ByteAddress::A8 => {
+                            let address = 0xFF00 | self.bus.read_byte(self.pc + 1) as u16;
+                            self.bus.set_byte(address, self.registers.a);
+                        }
+                        ByteAddress::C => {
+                            let address = 0xFF00 | self.registers.c as u16;
+                            self.bus.set_byte(address, self.registers.a);
+                        }
+                        ByteAddress::A16 => {
+                            let lower_byte = self.bus.read_byte(self.pc + 1) as u16;
+                            let upper_byte = self.bus.read_byte(self.pc + 2) as u16;
+                            let address = upper_byte << 8 | lower_byte;
+                            self.bus.set_byte(address, self.registers.a);
+                        }
+                    },
+
+                    LoadType::SPToAddress => {
+                        let lower_byte = self.bus.read_byte(self.pc + 1) as u16;
+                        let upper_byte = self.bus.read_byte(self.pc + 2) as u16;
+                        let address = upper_byte << 8 | lower_byte;
+                        self.bus.set_byte(address, self.sp as u8);
+                        self.bus.set_byte(address + 1, (self.sp >> 8) as u8);
+                    }
+                }
                 self.pc.wrapping_add(1)
             }
-
             /* Stack instructions */
             Instruction::POP(target) => {
                 match target {
@@ -1280,10 +1411,10 @@ impl CPU {
             self.registers.get_hl()
         };
 
-        let (new_value, did_overflow) = operatedRegisterValue.overflowing_add(value);
+        let (new_value, did_overflow) = operated_register_value.overflowing_add(value);
         self.registers.f.subtract = false;
         self.registers.f.carry = did_overflow;
-        self.registers.f.half_carry = (operatedRegisterValue & 0xFFF) + (value & 0xFFF) > 0xFFF;
+        self.registers.f.half_carry = (operated_register_value & 0xFFF) + (value & 0xFFF) > 0xFFF;
         new_value
     }
 
