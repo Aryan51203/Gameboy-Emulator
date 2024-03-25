@@ -6,6 +6,8 @@ use crate::instructions::{
 use crate::memory::MemoryBus;
 use crate::registers::Registers;
 
+use crate::instructions_execution::arithmetic;
+
 struct CPU {
     registers: Registers,
     pc: u16,
@@ -64,154 +66,19 @@ impl CPU {
             }
 
             // addition instructions
-            Instruction::ADD(target) => match target {
-                ArithmeticTarget::B => {
-                    let value = self.registers.b;
-                    let new_value = self.add(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::C => {
-                    let value = self.registers.c;
-                    let new_value = self.add(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::D => {
-                    let value = self.registers.d;
-                    let new_value = self.add(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::E => {
-                    let value = self.registers.e;
-                    let new_value = self.add(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::H => {
-                    let value = self.registers.h;
-                    let new_value = self.add(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::L => {
-                    let value = self.registers.l;
-                    let new_value = self.add(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::HLI => {
-                    let value = self.bus.read_byte(self.registers.get_hl());
-                    let new_value = self.add(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::A => {
-                    let value = self.registers.a;
-                    let new_value = self.add(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::D8 => {
-                    let value = self.bus.read_byte(self.pc + 1);
-                    let new_value = self.add(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(2)
-                }
-            },
+            Instruction::ADD(target) => {
+                arithmetic::add(&mut self.registers, target, &mut self.bus, self.pc)
+            }
 
             // long addition instructions
-            Instruction::ADDL(target) => match target {
-                ArithmeticTargetLong::BC => {
-                    let value: u16 = self.registers.get_bc();
-                    let new_value: u16 = self.add_long(value, false);
-                    self.registers.set_hl(new_value);
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTargetLong::DE => {
-                    let value: u16 = self.registers.get_de();
-                    let new_value: u16 = self.add_long(value, false);
-                    self.registers.set_hl(new_value);
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTargetLong::HL => {
-                    let value: u16 = self.registers.get_hl();
-                    let new_value: u16 = self.add_long(value, false);
-                    self.registers.set_hl(new_value);
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTargetLong::SP => {
-                    let value: u16 = self.sp;
-                    let new_value: u16 = self.add_long(value, false);
-                    self.registers.set_hl(new_value);
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTargetLong::S8 => {
-                    let value: u16 = self.bus.read_byte(self.pc + 1) as u16;
-                    let new_value: u16 = self.add_long(value, true);
-                    self.registers.set_hl(new_value);
-                    self.pc.wrapping_add(2)
-                }
-            },
+            Instruction::ADDL(target) => {
+                arithmetic::add_long(&mut self.registers, target, &mut self.bus, self.pc, self.sp)
+            }
 
             // addition with carry instructions
-            Instruction::ADC(target) => match target {
-                ArithmeticTarget::B => {
-                    let value = self.registers.b;
-                    let new_value = self.add_carry(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::C => {
-                    let value = self.registers.c;
-                    let new_value = self.add_carry(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::D => {
-                    let value = self.registers.d;
-                    let new_value = self.add_carry(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::E => {
-                    let value = self.registers.e;
-                    let new_value = self.add_carry(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::H => {
-                    let value = self.registers.h;
-                    let new_value = self.add_carry(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::L => {
-                    let value = self.registers.l;
-                    let new_value = self.add_carry(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::HLI => {
-                    let value = self.bus.read_byte(self.registers.get_hl());
-                    let new_value = self.add_carry(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::A => {
-                    let value = self.registers.a;
-                    let new_value = self.add_carry(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::D8 => {
-                    let value = self.bus.read_byte(self.pc + 1);
-                    let new_value = self.add_carry(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(2)
-                }
-            },
+            Instruction::ADC(target) => {
+                arithmetic::add_carry(&mut self.registers, target, &mut self.bus, self.pc)
+            }
 
             // Subtraction instructions
             Instruction::SUB(target) => match target {
@@ -857,7 +724,7 @@ impl CPU {
                     }
 
                     LoadType::Word(LoadWordTarget, LoadWordSource) => {
-                        let mut source_value: u16 = 0x0;
+                        let source_value: u16;
 
                         match LoadWordSource {
                             LoadWordSource::BC => source_value = self.registers.get_bc(),
@@ -1393,39 +1260,6 @@ impl CPU {
                 self.pc
             }
         }
-    }
-
-    fn add(&mut self, value: u8) -> u8 {
-        let (new_value, did_overflow) = self.registers.a.overflowing_add(value);
-        self.registers.f.zero = new_value == 0;
-        self.registers.f.subtract = false;
-        self.registers.f.carry = did_overflow;
-        self.registers.f.half_carry = (self.registers.a & 0xF) + (value & 0xF) > 0xF;
-        new_value
-    }
-
-    fn add_long(&mut self, value: u16, is_sp: bool) -> u16 {
-        let operated_register_value: u16 = if is_sp {
-            self.sp
-        } else {
-            self.registers.get_hl()
-        };
-
-        let (new_value, did_overflow) = operated_register_value.overflowing_add(value);
-        self.registers.f.subtract = false;
-        self.registers.f.carry = did_overflow;
-        self.registers.f.half_carry = (operated_register_value & 0xFFF) + (value & 0xFFF) > 0xFFF;
-        new_value
-    }
-
-    fn add_carry(&mut self, value: u8) -> u8 {
-        let carry = if self.registers.f.carry { 1 } else { 0 };
-        let (new_value, did_overflow) = self.registers.a.overflowing_add(value + carry);
-        self.registers.f.zero = new_value == 0;
-        self.registers.f.subtract = false;
-        self.registers.f.carry = did_overflow;
-        self.registers.f.half_carry = (self.registers.a & 0xF) + (value & 0xF) + carry > 0xF;
-        new_value
     }
 
     fn sub(&mut self, value: u8) -> u8 {
