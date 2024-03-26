@@ -1,12 +1,10 @@
 use crate::instructions::{
-    ArithmeticTarget, ArithmeticTargetLong, ByteAddress, IncDecTarget, Indirect, Instruction,
-    JumpType, LoadByteSource, LoadByteTarget, LoadType, LoadWordSource, LoadWordTarget,
-    RegisterTarget, StackRegisters,
+    ArithmeticTarget, Instruction, JumpType, RegisterTarget, StackRegisters,
 };
 use crate::memory::MemoryBus;
 use crate::registers::Registers;
 
-use crate::instructions_execution::arithmetic;
+use crate::instructions_execution::{arithmetic, load, logical, rotate};
 
 struct CPU {
     registers: Registers,
@@ -110,6 +108,21 @@ impl CPU {
                 false,
             ),
 
+            // Logical AND instructions
+            Instruction::AND(target) => {
+                logical::and(&mut self.registers, target, &mut self.bus, self.pc)
+            }
+
+            // Logical OR instructions
+            Instruction::OR(target) => {
+                logical::or(&mut self.registers, target, &mut self.bus, self.pc)
+            }
+
+            // Logical XOR instructions
+            Instruction::XOR(target) => {
+                logical::xor(&mut self.registers, target, &mut self.bus, self.pc)
+            }
+
             // Compare instructions
             Instruction::CMP(target) => match target {
                 ArithmeticTarget::B => {
@@ -168,180 +181,6 @@ impl CPU {
                 }
             },
 
-            // Logical AND instructions
-            Instruction::AND(target) => match target {
-                ArithmeticTarget::B => {
-                    let value = self.registers.b;
-                    let new_value = self.and(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::C => {
-                    let value = self.registers.c;
-                    let new_value = self.and(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::D => {
-                    let value = self.registers.d;
-                    let new_value = self.and(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::E => {
-                    let value = self.registers.e;
-                    let new_value = self.and(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::H => {
-                    let value = self.registers.h;
-                    let new_value = self.and(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::L => {
-                    let value = self.registers.l;
-                    let new_value = self.and(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::HLI => {
-                    let value = self.bus.read_byte(self.registers.get_hl());
-                    let new_value = self.and(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::A => {
-                    let value = self.registers.a;
-                    let new_value = self.and(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::D8 => {
-                    let value = self.bus.read_byte(self.pc + 1);
-                    let new_value = self.and(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(2)
-                }
-            },
-
-            // Logical OR instructions
-            Instruction::OR(target) => match target {
-                ArithmeticTarget::B => {
-                    let value = self.registers.b;
-                    let new_value = self.or(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::C => {
-                    let value = self.registers.c;
-                    let new_value = self.or(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::D => {
-                    let value = self.registers.d;
-                    let new_value = self.or(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::E => {
-                    let value = self.registers.e;
-                    let new_value = self.or(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::H => {
-                    let value = self.registers.h;
-                    let new_value = self.or(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::L => {
-                    let value = self.registers.l;
-                    let new_value = self.or(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::HLI => {
-                    let value = self.bus.read_byte(self.registers.get_hl());
-                    let new_value = self.or(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::A => {
-                    let value = self.registers.a;
-                    let new_value = self.or(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::D8 => {
-                    let value = self.bus.read_byte(self.pc + 1);
-                    let new_value = self.or(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(2)
-                }
-            },
-
-            // Logical XOR instructions
-            Instruction::XOR(target) => match target {
-                ArithmeticTarget::B => {
-                    let value = self.registers.b;
-                    let new_value = self.xor(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::C => {
-                    let value = self.registers.c;
-                    let new_value = self.xor(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::D => {
-                    let value = self.registers.d;
-                    let new_value = self.xor(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::E => {
-                    let value = self.registers.e;
-                    let new_value = self.xor(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::H => {
-                    let value = self.registers.h;
-                    let new_value = self.xor(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::L => {
-                    let value = self.registers.l;
-                    let new_value = self.xor(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::HLI => {
-                    let value = self.bus.read_byte(self.registers.get_hl());
-                    let new_value = self.xor(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::A => {
-                    let value = self.registers.a;
-                    let new_value = self.xor(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(1)
-                }
-                ArithmeticTarget::D8 => {
-                    let value = self.bus.read_byte(self.pc + 1);
-                    let new_value = self.xor(value);
-                    self.registers.a = new_value;
-                    self.pc.wrapping_add(2)
-                }
-            },
-
             Instruction::CCF => {
                 self.registers.f.carry = !self.registers.f.carry;
                 self.pc.wrapping_add(1)
@@ -363,34 +202,16 @@ impl CPU {
             }
 
             // RLCA instruction
-            Instruction::RLCA => {
-                self.registers.f.carry = self.registers.a & 0x80 > 1;
-                self.registers.a =
-                    (self.registers.a << 1) | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                self.pc.wrapping_add(1)
-            }
+            Instruction::RLCA => rotate::rlca(&mut self.registers, self.pc),
 
             // RRCA instruction
-            Instruction::RRCA => {
-                self.registers.f.carry = self.registers.a & 0x01 == 1;
-                self.registers.a =
-                    (self.registers.a >> 1) | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                self.pc.wrapping_add(1)
-            }
+            Instruction::RRCA => rotate::rrca(&mut self.registers, self.pc),
 
             // RLA instruction
-            Instruction::RLA => {
-                self.registers.a =
-                    (self.registers.a << 1) | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                self.pc.wrapping_add(1)
-            }
+            Instruction::RLA => rotate::rla(&mut self.registers, self.pc),
 
             // RRA instruction
-            Instruction::RRA => {
-                self.registers.a =
-                    (self.registers.a >> 1) | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                self.pc.wrapping_add(1)
-            }
+            Instruction::RRA => rotate::rra(&mut self.registers, self.pc),
 
             Instruction::CALL(test) => {
                 let jump_condition = match test {
@@ -448,147 +269,14 @@ impl CPU {
             }
 
             /* Load instructions */
-            Instruction::LD(ld_type) => {
-                // match ld_type {
-                //     LoadType::Byte(target, source) => {}
-                //     LoadType::Word(target, source) => {}
-                // }
+            Instruction::LD(ld_type) => load::load(
+                &mut self.registers,
+                &mut self.bus,
+                self.pc,
+                ld_type,
+                &mut self.sp,
+            ),
 
-                match ld_type {
-                    LoadType::Byte(LoadByteTarget, LoadByteSource) => {
-                        let source_value: u8;
-
-                        match LoadByteSource {
-                            LoadByteSource::A => source_value = self.registers.a,
-                            LoadByteSource::B => source_value = self.registers.b,
-                            LoadByteSource::C => source_value = self.registers.c,
-                            LoadByteSource::D => source_value = self.registers.d,
-                            LoadByteSource::E => source_value = self.registers.e,
-                            LoadByteSource::H => source_value = self.registers.h,
-                            LoadByteSource::L => source_value = self.registers.l,
-                            LoadByteSource::HLI => {
-                                source_value = self.bus.read_byte(self.registers.get_hl())
-                            }
-                            LoadByteSource::D8 => source_value = self.bus.read_byte(self.pc + 1),
-                        }
-                        match LoadByteTarget {
-                            LoadByteTarget::A => self.registers.a = source_value,
-                            LoadByteTarget::B => self.registers.b = source_value,
-                            LoadByteTarget::C => self.registers.c = source_value,
-                            LoadByteTarget::D => self.registers.d = source_value,
-                            LoadByteTarget::E => self.registers.e = source_value,
-                            LoadByteTarget::H => self.registers.h = source_value,
-                            LoadByteTarget::L => self.registers.l = source_value,
-                            LoadByteTarget::HLI => {
-                                self.bus.set_byte(self.registers.get_hl(), source_value)
-                            }
-                        }
-                    }
-
-                    LoadType::Word(LoadWordTarget, LoadWordSource) => {
-                        let source_value: u16;
-
-                        match LoadWordSource {
-                            LoadWordSource::BC => source_value = self.registers.get_bc(),
-                            LoadWordSource::DE => source_value = self.registers.get_de(),
-                            LoadWordSource::HL => source_value = self.registers.get_hl(),
-                            LoadWordSource::SP => source_value = self.sp,
-                            LoadWordSource::D16 => {
-                                let lower_byte = self.bus.read_byte(self.pc + 1) as u16;
-                                let upper_byte = self.bus.read_byte(self.pc + 2) as u16;
-                                source_value = (upper_byte << 8) | lower_byte;
-                            }
-                        }
-
-                        match LoadWordTarget {
-                            LoadWordTarget::BC => self.registers.set_bc(source_value),
-                            LoadWordTarget::DE => self.registers.set_de(source_value),
-                            LoadWordTarget::HL => self.registers.set_hl(source_value),
-                            LoadWordTarget::SP => self.sp = source_value,
-                        }
-                    }
-
-                    LoadType::AFromIndirect(target) => match target {
-                        Indirect::BCI => {
-                            self.registers.a = self.bus.read_byte(self.registers.get_bc())
-                        }
-                        Indirect::DEI => {
-                            self.registers.a = self.bus.read_byte(self.registers.get_de())
-                        }
-                        Indirect::HLINC => {
-                            self.registers.a = self.bus.read_byte(self.registers.get_hl());
-                            self.registers
-                                .set_hl(self.registers.get_hl().wrapping_add(1));
-                        }
-                        Indirect::HLDEC => {
-                            self.registers.a = self.bus.read_byte(self.registers.get_hl());
-                            self.registers
-                                .set_hl(self.registers.get_hl().wrapping_sub(1));
-                        }
-                    },
-
-                    LoadType::IndirectFromA(target) => match target {
-                        Indirect::BCI => {
-                            self.bus.set_byte(self.registers.get_bc(), self.registers.a)
-                        }
-                        Indirect::DEI => {
-                            self.bus.set_byte(self.registers.get_de(), self.registers.a)
-                        }
-                        Indirect::HLINC => {
-                            self.bus.set_byte(self.registers.get_hl(), self.registers.a);
-                            self.registers
-                                .set_hl(self.registers.get_hl().wrapping_add(1));
-                        }
-                        Indirect::HLDEC => {
-                            self.bus.set_byte(self.registers.get_hl(), self.registers.a);
-                            self.registers
-                                .set_hl(self.registers.get_hl().wrapping_sub(1));
-                        }
-                    },
-                    LoadType::AFromByteAddress(target) => match target {
-                        ByteAddress::A8 => {
-                            let address = 0xFF00 | self.bus.read_byte(self.pc + 1) as u16;
-                            self.registers.a = self.bus.read_byte(address);
-                        }
-                        ByteAddress::C => {
-                            let address = 0xFF00 | self.registers.c as u16;
-                            self.registers.a = self.bus.read_byte(address);
-                        }
-                        ByteAddress::A16 => {
-                            let lower_byte = self.bus.read_byte(self.pc + 1) as u16;
-                            let upper_byte = self.bus.read_byte(self.pc + 2) as u16;
-                            let address = upper_byte << 8 | lower_byte;
-                            self.registers.a = self.bus.read_byte(address);
-                        }
-                    },
-
-                    LoadType::ByteAddressFromA(target) => match target {
-                        ByteAddress::A8 => {
-                            let address = 0xFF00 | self.bus.read_byte(self.pc + 1) as u16;
-                            self.bus.set_byte(address, self.registers.a);
-                        }
-                        ByteAddress::C => {
-                            let address = 0xFF00 | self.registers.c as u16;
-                            self.bus.set_byte(address, self.registers.a);
-                        }
-                        ByteAddress::A16 => {
-                            let lower_byte = self.bus.read_byte(self.pc + 1) as u16;
-                            let upper_byte = self.bus.read_byte(self.pc + 2) as u16;
-                            let address = upper_byte << 8 | lower_byte;
-                            self.bus.set_byte(address, self.registers.a);
-                        }
-                    },
-
-                    LoadType::SPToAddress => {
-                        let lower_byte = self.bus.read_byte(self.pc + 1) as u16;
-                        let upper_byte = self.bus.read_byte(self.pc + 2) as u16;
-                        let address = upper_byte << 8 | lower_byte;
-                        self.bus.set_byte(address, self.sp as u8);
-                        self.bus.set_byte(address + 1, (self.sp >> 8) as u8);
-                    }
-                }
-                self.pc.wrapping_add(1)
-            }
             /* Stack instructions */
             Instruction::POP(target) => {
                 match target {
@@ -604,188 +292,22 @@ impl CPU {
 
             /* Rotate the contents of register to the left. That is, the contents of bit 0 are copied to bit 1, and the previous contents of bit 1 (before the copy operation) are copied to bit 2. The same operation is repeated in sequence for the rest of the register. The contents of bit 7 are placed in both the CY flag and bit 0 of register. */
             Instruction::RLC(target) => {
-                match target {
-                    RegisterTarget::A => {
-                        self.registers.f.carry = self.registers.a & 0x80 > 1;
-                        self.registers.a = (self.registers.a << 1)
-                            | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                    }
-                    RegisterTarget::B => {
-                        self.registers.f.carry = self.registers.b & 0x80 > 1;
-                        self.registers.b = (self.registers.b << 1)
-                            | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                    }
-                    RegisterTarget::C => {
-                        self.registers.f.carry = self.registers.c & 0x80 > 1;
-                        self.registers.c = (self.registers.c << 1)
-                            | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                    }
-                    RegisterTarget::D => {
-                        self.registers.f.carry = self.registers.d & 0x80 > 1;
-                        self.registers.d = (self.registers.d << 1)
-                            | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                    }
-                    RegisterTarget::E => {
-                        self.registers.f.carry = self.registers.e & 0x80 > 1;
-                        self.registers.e = (self.registers.e << 1)
-                            | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                    }
-                    RegisterTarget::H => {
-                        self.registers.f.carry = self.registers.h & 0x80 > 1;
-                        self.registers.h = (self.registers.h << 1)
-                            | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                    }
-                    RegisterTarget::L => {
-                        self.registers.f.carry = self.registers.l & 0x80 > 1;
-                        self.registers.l = (self.registers.l << 1)
-                            | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                    }
-                    RegisterTarget::HLI => {
-                        self.registers.f.carry =
-                            self.bus.read_byte(self.registers.get_hl()) & 0x80 > 1;
-                        self.bus.set_byte(
-                            self.registers.get_hl(),
-                            (self.bus.read_byte(self.registers.get_hl()) << 1)
-                                | (if self.registers.f.carry { 0x01 } else { 0x00 }),
-                        );
-                    }
-                }
-                self.pc.wrapping_add(2)
+                rotate::rlc(&mut self.registers, self.pc, &mut self.bus, target)
             }
 
             /* Rotate the contents of register to the right. That is, the contents of bit 7 are copied to bit 6, and the previous contents of bit 6 (before the copy operation) are copied to bit 5. The same operation is repeated in sequence for the rest of the register. The contents of bit 0 are placed in both the CY flag and bit 7 of register. */
             Instruction::RRC(target) => {
-                match target {
-                    RegisterTarget::A => {
-                        self.registers.f.carry = self.registers.a & 0x01 == 1;
-                        self.registers.a = (self.registers.a >> 1)
-                            | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                    }
-                    RegisterTarget::B => {
-                        self.registers.f.carry = self.registers.b & 0x01 == 1;
-                        self.registers.b = (self.registers.b >> 1)
-                            | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                    }
-                    RegisterTarget::C => {
-                        self.registers.f.carry = self.registers.c & 0x01 == 1;
-                        self.registers.c = (self.registers.c >> 1)
-                            | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                    }
-                    RegisterTarget::D => {
-                        self.registers.f.carry = self.registers.d & 0x01 == 1;
-                        self.registers.d = (self.registers.d >> 1)
-                            | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                    }
-                    RegisterTarget::E => {
-                        self.registers.f.carry = self.registers.e & 0x01 == 1;
-                        self.registers.e = (self.registers.e >> 1)
-                            | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                    }
-                    RegisterTarget::H => {
-                        self.registers.f.carry = self.registers.h & 0x01 == 1;
-                        self.registers.h = (self.registers.h >> 1)
-                            | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                    }
-                    RegisterTarget::L => {
-                        self.registers.f.carry = self.registers.l & 0x01 == 1;
-                        self.registers.l = (self.registers.l >> 1)
-                            | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                    }
-                    RegisterTarget::HLI => {
-                        self.registers.f.carry =
-                            self.bus.read_byte(self.registers.get_hl()) & 0x01 == 1;
-                        self.bus.set_byte(
-                            self.registers.get_hl(),
-                            (self.bus.read_byte(self.registers.get_hl()) >> 1)
-                                | (if self.registers.f.carry { 0x80 } else { 0x00 }),
-                        );
-                    }
-                }
-                self.pc.wrapping_add(2)
+                rotate::rrc(&mut self.registers, self.pc, &mut self.bus, target)
             }
 
             /* Rotate the contents of register to the left. That is, the contents of bit 0 are copied to bit 1, and the previous contents of bit 1 (before the copy operation) are copied to bit 2. The same operation is repeated in sequence for the rest of the register. The previous contents of the carry (CY) flag are copied to bit 0 of register. */
             Instruction::RL(target) => {
-                match target {
-                    RegisterTarget::A => {
-                        self.registers.a = (self.registers.a << 1)
-                            | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                    }
-                    RegisterTarget::B => {
-                        self.registers.b = (self.registers.b << 1)
-                            | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                    }
-                    RegisterTarget::C => {
-                        self.registers.c = (self.registers.c << 1)
-                            | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                    }
-                    RegisterTarget::D => {
-                        self.registers.d = (self.registers.d << 1)
-                            | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                    }
-                    RegisterTarget::E => {
-                        self.registers.e = (self.registers.e << 1)
-                            | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                    }
-                    RegisterTarget::H => {
-                        self.registers.h = (self.registers.h << 1)
-                            | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                    }
-                    RegisterTarget::L => {
-                        self.registers.l = (self.registers.l << 1)
-                            | (if self.registers.f.carry { 0x01 } else { 0x00 });
-                    }
-                    RegisterTarget::HLI => {
-                        self.bus.set_byte(
-                            self.registers.get_hl(),
-                            (self.bus.read_byte(self.registers.get_hl()) << 1)
-                                | (if self.registers.f.carry { 0x01 } else { 0x00 }),
-                        );
-                    }
-                }
-                self.pc.wrapping_add(2)
+                rotate::rl(&mut self.registers, self.pc, &mut self.bus, target)
             }
 
             /* Rotate the contents of register to the right. That is, the contents of bit 7 are copied to bit 6, and the previous contents of bit 6 (before the copy operation) are copied to bit 5. The same operation is repeated in sequence for the rest of the register. The previous contents of the carry (CY) flag are copied to bit 7 of register. */
             Instruction::RR(target) => {
-                match target {
-                    RegisterTarget::A => {
-                        self.registers.a = (self.registers.a >> 1)
-                            | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                    }
-                    RegisterTarget::B => {
-                        self.registers.b = (self.registers.b >> 1)
-                            | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                    }
-                    RegisterTarget::C => {
-                        self.registers.c = (self.registers.c >> 1)
-                            | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                    }
-                    RegisterTarget::D => {
-                        self.registers.d = (self.registers.d >> 1)
-                            | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                    }
-                    RegisterTarget::E => {
-                        self.registers.e = (self.registers.e >> 1)
-                            | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                    }
-                    RegisterTarget::H => {
-                        self.registers.h = (self.registers.h >> 1)
-                            | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                    }
-                    RegisterTarget::L => {
-                        self.registers.l = (self.registers.l >> 1)
-                            | (if self.registers.f.carry { 0x80 } else { 0x00 });
-                    }
-                    RegisterTarget::HLI => {
-                        self.bus.set_byte(
-                            self.registers.get_hl(),
-                            (self.bus.read_byte(self.registers.get_hl()) >> 1)
-                                | (if self.registers.f.carry { 0x80 } else { 0x00 }),
-                        );
-                    }
-                }
-                self.pc.wrapping_add(2)
+                rotate::rr(&mut self.registers, self.pc, &mut self.bus, target)
             }
 
             /* Shift the contents of register to the left. That is, the contents of bit 0 are copied to bit 1, and the previous contents of bit 1 (before the copy operation) are copied to bit 2. The same operation is repeated in sequence for the rest of the register. The contents of bit 7 are copied to the CY flag, and bit 0 of register is reset to 0. */
@@ -1022,33 +544,6 @@ impl CPU {
                 self.pc
             }
         }
-    }
-
-    fn and(&mut self, value: u8) -> u8 {
-        let new_value = self.registers.a & value;
-        self.registers.f.zero = new_value == 0;
-        self.registers.f.subtract = false;
-        self.registers.f.carry = false;
-        self.registers.f.half_carry = false; // CHECK THIS ONCE
-        new_value
-    }
-
-    fn or(&mut self, value: u8) -> u8 {
-        let new_value = self.registers.a | value;
-        self.registers.f.zero = new_value == 0;
-        self.registers.f.subtract = false;
-        self.registers.f.carry = false;
-        self.registers.f.half_carry = false;
-        new_value
-    }
-
-    fn xor(&mut self, value: u8) -> u8 {
-        let new_value = self.registers.a ^ value;
-        self.registers.f.zero = new_value == 0;
-        self.registers.f.subtract = false;
-        self.registers.f.carry = false;
-        self.registers.f.half_carry = false;
-        new_value
     }
 
     fn jump(&self, should_jump: bool) -> u16 {
