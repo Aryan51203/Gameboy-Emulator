@@ -4,7 +4,7 @@ use crate::instructions::{
 use crate::memory::MemoryBus;
 use crate::registers::Registers;
 
-use crate::instructions_execution::{arithmetic, load, logical, rotate};
+use crate::instructions_execution::{arithmetic, load, logical, rotate, shift};
 
 struct CPU {
     registers: Registers,
@@ -312,163 +312,22 @@ impl CPU {
 
             /* Shift the contents of register to the left. That is, the contents of bit 0 are copied to bit 1, and the previous contents of bit 1 (before the copy operation) are copied to bit 2. The same operation is repeated in sequence for the rest of the register. The contents of bit 7 are copied to the CY flag, and bit 0 of register is reset to 0. */
             Instruction::SLA(target) => {
-                match target {
-                    RegisterTarget::A => {
-                        self.registers.f.carry = self.registers.a & 0x7F > 0;
-                        self.registers.a = (self.registers.a << 1) | (self.registers.a & 0x01);
-                    }
-                    RegisterTarget::B => {
-                        self.registers.f.carry = self.registers.b & 0x7F > 0;
-                        self.registers.b = (self.registers.a << 1) | (self.registers.b & 0x01);
-                    }
-                    RegisterTarget::C => {
-                        self.registers.f.carry = self.registers.c & 0x7F > 0;
-                        self.registers.c = (self.registers.c << 1) | (self.registers.c & 0x01);
-                    }
-                    RegisterTarget::D => {
-                        self.registers.f.carry = self.registers.d & 0x7F > 0;
-                        self.registers.d = (self.registers.d << 1) | (self.registers.d & 0x01);
-                    }
-                    RegisterTarget::E => {
-                        self.registers.f.carry = self.registers.e & 0x7F > 0;
-                        self.registers.e = (self.registers.e << 1) | (self.registers.e & 0x01);
-                    }
-                    RegisterTarget::H => {
-                        self.registers.f.carry = self.registers.h & 0x7F > 0;
-                        self.registers.h = (self.registers.h << 1) | (self.registers.h & 0x01);
-                    }
-                    RegisterTarget::L => {
-                        self.registers.f.carry = self.registers.l & 0x7F > 0;
-                        self.registers.l = (self.registers.l << 1) | (self.registers.l & 0x01);
-                    }
-                    RegisterTarget::HLI => {
-                        self.registers.f.carry =
-                            self.bus.read_byte(self.registers.get_hl()) & 0x7F > 0;
-                        self.bus.set_byte(
-                            self.registers.get_hl(),
-                            (self.bus.read_byte(self.registers.get_hl()) << 1)
-                                | (self.bus.read_byte(self.registers.get_hl()) & 0x01),
-                        );
-                    }
-                }
-                self.pc.wrapping_add(2)
+                shift::sla(&mut self.registers, self.pc, target, &mut self.bus)
             }
 
             /* Shift the contents of register to the right. That is, the contents of bit 7 are copied to bit 6, and the previous contents of bit 6 (before the copy operation) are copied to bit 5. The same operation is repeated in sequence for the rest of the register. The contents of bit 0 are copied to the CY flag, and bit 7 of register is unchanged. */
             Instruction::SRA(target) => {
-                match target {
-                    RegisterTarget::A => {
-                        self.registers.f.carry = self.registers.a & 0x01 == 1;
-                        self.registers.a = (self.registers.a >> 1) | (self.registers.a & 0x80);
-                    }
-                    RegisterTarget::B => {
-                        self.registers.f.carry = self.registers.b & 0x01 == 1;
-                        self.registers.b = (self.registers.b >> 1) | (self.registers.b & 0x80);
-                    }
-                    RegisterTarget::C => {
-                        self.registers.f.carry = self.registers.c & 0x01 == 1;
-                        self.registers.c = (self.registers.c >> 1) | (self.registers.c & 0x80);
-                    }
-                    RegisterTarget::D => {
-                        self.registers.f.carry = self.registers.d & 0x01 == 1;
-                        self.registers.d = (self.registers.d >> 1) | (self.registers.d & 0x80);
-                    }
-                    RegisterTarget::E => {
-                        self.registers.f.carry = self.registers.e & 0x01 == 1;
-                        self.registers.e = (self.registers.e >> 1) | (self.registers.e & 0x80);
-                    }
-                    RegisterTarget::H => {
-                        self.registers.f.carry = self.registers.h & 0x01 == 1;
-                        self.registers.h = (self.registers.h >> 1) | (self.registers.h & 0x80);
-                    }
-                    RegisterTarget::L => {
-                        self.registers.f.carry = self.registers.l & 0x01 == 1;
-                        self.registers.l = (self.registers.l >> 1) | (self.registers.l & 0x80);
-                    }
-                    RegisterTarget::HLI => {
-                        let value = self.bus.read_byte(self.registers.get_hl());
-                        self.registers.f.carry = value & 0x01 == 1;
-                        self.bus
-                            .set_byte(self.registers.get_hl(), (value >> 1) | (value & 0x80));
-                    }
-                }
-                self.pc.wrapping_add(2)
+                shift::sra(&mut self.registers, self.pc, target, &mut self.bus)
             }
 
             /* Shift the contents of the lower-order four bits (0-3) of register to the higher-order four bits (4-7) of the register, and shift the higher-order four bits to the lower-order four bits. */
             Instruction::SWAP(target) => {
-                match target {
-                    RegisterTarget::A => {
-                        self.registers.a = (self.registers.a << 4) | (self.registers.a >> 4)
-                    }
-                    RegisterTarget::B => {
-                        self.registers.b = (self.registers.b << 4) | (self.registers.b >> 4)
-                    }
-                    RegisterTarget::C => {
-                        self.registers.c = (self.registers.c << 4) | (self.registers.c >> 4)
-                    }
-                    RegisterTarget::D => {
-                        self.registers.d = (self.registers.d << 4) | (self.registers.d >> 4)
-                    }
-                    RegisterTarget::E => {
-                        self.registers.e = (self.registers.e << 4) | (self.registers.e >> 4)
-                    }
-                    RegisterTarget::H => {
-                        self.registers.h = (self.registers.h << 4) | (self.registers.h >> 4)
-                    }
-                    RegisterTarget::L => {
-                        self.registers.l = (self.registers.l << 4) | (self.registers.l >> 4)
-                    }
-                    RegisterTarget::HLI => {
-                        let value = self.bus.read_byte(self.registers.get_hl());
-                        self.bus
-                            .set_byte(self.registers.get_hl(), (value << 4) | (value >> 4));
-                    }
-                }
-                self.pc.wrapping_add(2)
+                shift::swap(&mut self.registers, self.pc, target, &mut self.bus)
             }
 
             /* Shift the contents of register to the right. That is, the contents of bit 7 are copied to bit 6, and the previous contents of bit 6 (before the copy operation) are copied to bit 5. The same operation is repeated in sequence for the rest of the register. The contents of bit 0 are copied to the CY flag, and bit 7 of register is reset to 0. */
             Instruction::SRL(target) => {
-                match target {
-                    RegisterTarget::A => {
-                        self.registers.f.carry = self.registers.a & 0x01 == 1;
-                        self.registers.a = (self.registers.a >> 1) & 0x7F;
-                    }
-                    RegisterTarget::B => {
-                        self.registers.f.carry = self.registers.b & 0x01 == 1;
-                        self.registers.b = (self.registers.b >> 1) & 0x7F;
-                    }
-                    RegisterTarget::C => {
-                        self.registers.f.carry = self.registers.c & 0x01 == 1;
-                        self.registers.c = (self.registers.c >> 1) & 0x7F;
-                    }
-                    RegisterTarget::D => {
-                        self.registers.f.carry = self.registers.d & 0x01 == 1;
-                        self.registers.d = (self.registers.d >> 1) & 0x7F;
-                    }
-                    RegisterTarget::E => {
-                        self.registers.f.carry = self.registers.e & 0x01 == 1;
-                        self.registers.e = (self.registers.e >> 1) & 0x7F;
-                    }
-                    RegisterTarget::H => {
-                        self.registers.f.carry = self.registers.h & 0x01 == 1;
-                        self.registers.h = (self.registers.h >> 1) & 0x7F;
-                    }
-                    RegisterTarget::L => {
-                        self.registers.f.carry = self.registers.l & 0x01 == 1;
-                        self.registers.l = (self.registers.l >> 1) & 0x7F;
-                    }
-                    RegisterTarget::HLI => {
-                        self.registers.f.carry =
-                            self.bus.read_byte(self.registers.get_hl()) & 0x01 == 1;
-                        self.bus.set_byte(
-                            self.registers.get_hl(),
-                            (self.bus.read_byte(self.registers.get_hl())) >> 1 & 0x7F,
-                        )
-                    }
-                }
-                self.pc.wrapping_add(2)
+                shift::srl(&mut self.registers, self.pc, target, &mut self.bus)
             }
 
             /* Copy the complement of the contents of bit 'bit' in register to the Z flag of the program status word (PSW). */
