@@ -1,4 +1,4 @@
-use crate::instructions::{Instruction, JumpType, StackRegisters};
+use crate::instructions::Instruction;
 use crate::memory::MemoryBus;
 use crate::registers::Registers;
 
@@ -193,15 +193,7 @@ impl CPU {
             /* Stack instructions */
             Instruction::PUSH(target) => self.pc, // TODO: Implement Push
 
-            Instruction::POP(target) => {
-                match target {
-                    StackRegisters::AF => {}
-                    StackRegisters::BC => {}
-                    StackRegisters::DE => {}
-                    StackRegisters::HL => {}
-                }
-                self.pc.wrapping_add(1)
-            }
+            Instruction::POP(target) => self.pc.wrapping_add(1), // TODO: Implement Pop
 
             Instruction::CCF => {
                 self.registers.f.carry = !self.registers.f.carry;
@@ -223,27 +215,21 @@ impl CPU {
                 self.pc.wrapping_add(1)
             }
 
-            Instruction::CALL(test) => {
-                let jump_condition = match test {
-                    JumpType::NotZero => !self.registers.f.zero,
-                    JumpType::Zero => self.registers.f.zero,
-                    JumpType::NotCarry => !self.registers.f.carry,
-                    JumpType::Carry => self.registers.f.carry,
-                    JumpType::Always => true,
-                };
-                self.call(jump_condition)
-            }
+            Instruction::CALL(test) => conditional::call(
+                &mut self.registers,
+                self.pc,
+                &mut self.bus,
+                test,
+                &mut self.sp,
+            ),
 
-            Instruction::RET(test) => {
-                let jump_condition = match test {
-                    JumpType::NotZero => !self.registers.f.zero,
-                    JumpType::Zero => self.registers.f.zero,
-                    JumpType::NotCarry => !self.registers.f.carry,
-                    JumpType::Carry => self.registers.f.carry,
-                    JumpType::Always => true,
-                };
-                self.ret(jump_condition)
-            }
+            Instruction::RET(test) => conditional::ret(
+                &mut self.registers,
+                self.pc,
+                &mut self.bus,
+                test,
+                &mut self.sp,
+            ),
 
             Instruction::RETI => {
                 // TODO: Implement reti
@@ -278,41 +264,5 @@ impl CPU {
                 self.pc
             }
         }
-    }
-
-    // Call and Return
-    fn call(&mut self, should_jump: bool) -> u16 {
-        if should_jump {
-            let least_significant_byte = self.bus.read_byte(self.pc + 1) as u16;
-            let most_significant_byte = self.bus.read_byte(self.pc + 2) as u16;
-            self.push(self.pc.wrapping_add(3));
-            (most_significant_byte << 8) | least_significant_byte
-        } else {
-            self.pc.wrapping_add(3)
-        }
-    }
-
-    fn ret(&mut self, should_jump: bool) -> u16 {
-        if should_jump {
-            self.pop()
-        } else {
-            self.pc.wrapping_add(1)
-        }
-    }
-
-    // Stack functions
-    fn push(&mut self, value: u16) {
-        self.sp = self.sp.wrapping_sub(1);
-        self.bus.set_byte(self.sp, ((value & 0xFF00) >> 8) as u8);
-        self.sp = self.sp.wrapping_sub(1);
-        self.bus.set_byte(self.sp, (value & 0x00FF) as u8);
-    }
-
-    fn pop(&mut self) -> u16 {
-        let lsb = self.bus.read_byte(self.sp) as u16;
-        self.sp = self.sp.wrapping_add(1);
-        let msb = self.bus.read_byte(self.sp) as u16;
-        self.sp = self.sp.wrapping_add(1);
-        (msb << 8) | lsb
     }
 }
