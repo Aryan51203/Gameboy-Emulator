@@ -2,7 +2,9 @@ use crate::instructions::Instruction;
 use crate::memory::MemoryBus;
 use crate::registers::Registers;
 
-use crate::instructions_execution::{arithmetic, bit, conditional, load, logical, rotate, shift};
+use crate::instructions_execution::{
+    arithmetic, bit, conditional, load, logical, misc, rotate, shift, stack,
+};
 
 struct CPU {
     registers: Registers,
@@ -191,29 +193,13 @@ impl CPU {
             }
 
             /* Stack instructions */
-            Instruction::PUSH(target) => self.pc, // TODO: Implement Push
+            Instruction::PUSH(target) => {
+                stack::push(&mut self.registers, target, &mut self.bus, self.pc)
+            } // TODO: Implement Push
 
-            Instruction::POP(target) => self.pc.wrapping_add(1), // TODO: Implement Pop
-
-            Instruction::CCF => {
-                self.registers.f.carry = !self.registers.f.carry;
-                self.pc.wrapping_add(1)
-            }
-
-            Instruction::SCF => {
-                self.registers.f.carry = true;
-                self.pc.wrapping_add(1)
-            }
-
-            Instruction::DAA => {
-                // TO BE IMPLEMENTED
-                self.pc.wrapping_add(1)
-            }
-
-            Instruction::CPL => {
-                self.registers.a = !self.registers.a; // TODO: Check if this is correct and flags will be set correctly
-                self.pc.wrapping_add(1)
-            }
+            Instruction::POP(target) => {
+                stack::pop(&mut self.registers, target, &mut self.bus, self.pc)
+            } // TODO: Implement Pop
 
             Instruction::CALL(test) => conditional::call(
                 &mut self.registers,
@@ -231,38 +217,28 @@ impl CPU {
                 &mut self.sp,
             ),
 
-            Instruction::RETI => {
-                // TODO: Implement reti
-                self.pc.wrapping_add(1)
-            }
+            // Misc instructions
+            Instruction::CCF => misc::ccf(&mut self.registers, self.pc),
 
-            Instruction::RST(value) => {
-                // TODO: Implement rst
-                self.pc
-            }
+            Instruction::SCF => misc::scf(&mut self.registers, self.pc),
 
-            // Miscellanoes instructions
-            Instruction::NOP => self.pc.wrapping_add(1),
+            Instruction::DAA => misc::daa(&mut self.registers, self.pc),
 
-            Instruction::STOP => {
-                // TODO: Implement stop
-                self.pc
-            }
+            Instruction::CPL => misc::cpl(&mut self.registers, self.pc),
 
-            Instruction::HALT => {
-                // TODO: Implement halt
-                self.pc
-            }
+            Instruction::RETI => misc::reti(&mut self.registers, self.pc),
 
-            Instruction::DI => {
-                // TODO: Implement di
-                self.pc
-            }
+            Instruction::RST(value) => misc::rst(&mut self.registers, self.pc, value),
 
-            Instruction::EI => {
-                // TODO: Implement ei
-                self.pc
-            }
+            Instruction::NOP => misc::nop(self.pc),
+
+            Instruction::STOP => misc::stop(&mut self.registers, self.pc),
+
+            Instruction::HALT => misc::halt(&mut self.registers, self.pc),
+
+            Instruction::DI => misc::di(&mut self.registers, self.pc),
+
+            Instruction::EI => misc::ei(&mut self.registers, self.pc),
         }
     }
 }
